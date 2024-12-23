@@ -1,0 +1,100 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<mule xmlns:ee="http://www.mulesoft.org/schema/mule/ee/core" xmlns:db="http://www.mulesoft.org/schema/mule/db"
+	xmlns:http="http://www.mulesoft.org/schema/mule/http"
+	xmlns="http://www.mulesoft.org/schema/mule/core" xmlns:doc="http://www.mulesoft.org/schema/mule/documentation" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.mulesoft.org/schema/mule/core http://www.mulesoft.org/schema/mule/core/current/mule.xsd
+http://www.mulesoft.org/schema/mule/http http://www.mulesoft.org/schema/mule/http/current/mule-http.xsd
+http://www.mulesoft.org/schema/mule/db http://www.mulesoft.org/schema/mule/db/current/mule-db.xsd
+http://www.mulesoft.org/schema/mule/ee/core http://www.mulesoft.org/schema/mule/ee/core/current/mule-ee.xsd">
+	<http:listener-config name="HTTP_Listener_config" doc:name="HTTP Listener config" doc:id="12a7e9a4-182c-4480-a80d-eb6f078ab5d0" >
+		<http:listener-connection host="0.0.0.0" port="8081" />
+	</http:listener-config>
+	<db:config name="Database_Config" doc:name="Database Config" doc:id="77056cd4-feb2-46dc-9481-ab3649a9a25d" >
+		<db:my-sql-connection host="localhost" port="3306" user="root" password="12345" database="employee_db" />
+	</db:config>
+	<flow name="insert_detailstodbFlow" doc:id="c75ee7b5-4587-42de-97ad-fd84122afed2" >
+		<http:listener doc:name="Listener" doc:id="18d845d1-36c5-4050-bca4-7d36665eeda8" config-ref="HTTP_Listener_config" path="/insert"/>
+		<logger level="INFO" doc:name="Logger" doc:id="3affafbb-4a7c-4fef-adc4-e3c2d0730065" message="#[payload]"/>
+		<db:insert doc:name="Insert" doc:id="1c612775-0728-42fb-b665-634c0d8528b6" config-ref="Database_Config">
+			<db:sql ><![CDATA[INSERT INTO employees (id,name, position, salary)
+VALUES (:id,:name, :position, :salary);
+]]></db:sql>
+			<db:input-parameters ><![CDATA[#[{
+	"id" : payload.id,
+	"name"  : payload.name,
+	"position" : payload.position,
+	"salary" : payload.salary
+}]]]></db:input-parameters>
+		</db:insert>
+		<logger level="INFO" doc:name="Logger" doc:id="222702bd-abc3-406a-8bca-67b9761ce638" message='#[payload]'/>
+		<error-handler >
+			<on-error-propagate enableNotifications="true" logException="true" doc:name="On Error Propagate" doc:id="3a031fe3-d5f6-464d-9380-d1b1e66fc743" >
+				<set-payload value='#["An error occured during the procces"]' doc:name="Set Payload" doc:id="1f4d9acb-a380-4d90-abfc-ff5414eb28f3" />
+			</on-error-propagate>
+		</error-handler>
+	</flow>
+	<flow name="insert_detailstodbFlow1" doc:id="955dbe2c-ac2a-4456-9eb5-a92c624d59a7" >
+		<http:listener doc:name="Listener" doc:id="c0f86e94-b291-4e85-9734-8b97100d73cd" config-ref="HTTP_Listener_config" path="/select"/>
+		<db:select doc:name="Select" doc:id="bd7a1db3-4ac1-444a-9258-31cafe513dfe" config-ref="Database_Config">
+			<db:sql ><![CDATA[select * from employees]]></db:sql>
+		</db:select>
+		<ee:transform doc:name="Transform Message" doc:id="0f8675a8-c85b-4ef8-be2e-20d46fbf78a7">
+			<ee:message>
+				<ee:set-payload><![CDATA[%dw 2.0
+output application/json
+---
+payload map (item) -> {
+  "id" : item.id as Number,
+  "name" : item.name as String,
+  "position" : item.position as String,
+  "salary" : item.salary as Number
+}
+]]></ee:set-payload>
+			</ee:message>
+		</ee:transform>
+		<logger level="INFO" doc:name="Logger" doc:id="aafe4526-6220-4e56-bc0d-6f3a37fed3fe" message="#[payload]"/>
+		<error-handler >
+			<on-error-propagate enableNotifications="true" logException="true" doc:name="On Error Propagate" doc:id="52367607-1a64-4f46-9bd2-a9c9edc14209" >
+				<set-payload value='#["error occring during the procces"]' doc:name="Set Payload" doc:id="2164270b-bbd7-4b44-8807-ec3ca42ebb76" />
+			</on-error-propagate>
+		</error-handler>
+	</flow>
+	<flow name="delete" doc:id="657951f9-d5d2-4338-8908-1509831d233c" >
+		<http:listener doc:name="Listener" doc:id="e8f013de-f3e8-4c5e-b253-b92d3dae5859" config-ref="HTTP_Listener_config" path="/delete"/>
+		<db:delete doc:name="Delete" doc:id="93ee6f05-e001-4e6f-8d01-59820ca02b9f" config-ref="Database_Config">
+			<db:sql ><![CDATA[DELETE FROM employees WHERE id = 4
+]]></db:sql>
+			<db:input-parameters ><![CDATA[#[{
+	"id" : "id"
+	
+}]]]></db:input-parameters>
+		</db:delete>
+		<ee:transform doc:name="Transform Message" doc:id="4e4b9f62-c8eb-4f23-a4ae-d60ff5fd58b5" >
+			<ee:message >
+				<ee:set-payload ><![CDATA[%dw 2.0
+output application/java
+---
+{
+	"status" : "success"
+}]]></ee:set-payload>
+			</ee:message>
+		</ee:transform>
+		<error-handler >
+			<on-error-propagate enableNotifications="true" logException="true" doc:name="On Error Propagate" doc:id="1f6e0bdb-3a38-4ce7-8a17-e9c574a721a5" >
+				<set-payload value='#["an error occured during the procces"]' doc:name="Set Payload" doc:id="c88ad7f9-d405-40b1-82d2-179f2d113e87" />
+			</on-error-propagate>
+		</error-handler>
+	</flow>
+	<flow name="insert_detailstodbFlow2" doc:id="e8483902-8cf2-40bd-9ad8-0b7c95f3ee0b" >
+		<http:listener doc:name="Listener" doc:id="c1416033-a166-4d45-9bda-85d839818da1" config-ref="HTTP_Listener_config" path="/update"/>
+		<db:update doc:name="Update" doc:id="0d41394f-1791-479e-9936-8891025013c2" config-ref="Database_Config">
+			<db:sql ><![CDATA[update employees set name="abhishek" where salary=75000]]></db:sql>
+		</db:update>
+		<logger level="INFO" doc:name="Logger" doc:id="a34a9416-3676-4452-8032-227633bb6da4" message="#[payload]"/>
+		<error-handler >
+			<on-error-propagate enableNotifications="true" logException="true" doc:name="On Error Propagate" doc:id="d877d1fa-607c-42c9-8153-c452b1b4323b" >
+				<set-payload value='#["On error occurs during procces"]' doc:name="Set Payload" doc:id="b42c0497-9bb7-4a58-9c32-4cd8fc9f7dd0" />
+			</on-error-propagate>
+		</error-handler>
+	</flow>
+</mule>
